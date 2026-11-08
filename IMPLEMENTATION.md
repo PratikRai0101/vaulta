@@ -6,11 +6,11 @@ Deadline: 8 November 2026, 22:15 IST. Android is the submission target. iOS is a
 
 - [x] Ground: greenfield Expo SDK 58 project; approved Close-up design; actual dependency versions queried.
 - [x] Sketch and select the smallest end-to-end architecture below.
-- [ ] Implement authenticated encryption and boundary schemas, with real tests.
-- [ ] Implement wallet custody boundary, Turbo upload and Solana-owned recovery discovery.
-- [ ] Implement encrypted local vault and native UI.
-- [ ] Produce and exercise an Android APK; document untested device behavior honestly.
-- [ ] Publish storage/recovery nuances, demo steps and limitations.
+- [x] Implement authenticated encryption and boundary schemas, with real tests.
+- [x] Implement wallet custody boundary, Turbo upload and Solana-owned recovery discovery.
+- [x] Implement encrypted local vault and native UI.
+- [x] Produce and exercise an Android APK; real-phone and funded on-chain tests remain separate gates.
+- [x] Publish storage/recovery nuances and limitations. Final demo steps and release publication are in progress.
 
 ## Caller usage
 
@@ -44,4 +44,12 @@ Uploads and transactions may fail independently. Do not mark a snapshot backed u
 
 ## Implementation reconciliation
 
-Pending. Record accepted deviations here before handing a changed contract to another worker.
+Accepted by the parent implementation owner under the user's simplicity and deadline constraint:
+
+- Encrypted JSON with two index generations replaces planned SQLCipher for the bounded 100-item vault. Both file contents and metadata remain authenticated ciphertext. SDK58 file writes are asynchronous and are awaited. Type-aware lint rejects forgotten promises.
+- XChaCha20-Poly1305 is the authenticated cipher. It uses a versioned envelope and random 24-byte nonces rather than adding a native cipher binding.
+- Added `importReceipt()` to the controller and restore screen. Imported locators authenticate content under the wallet-derived key without claiming current chain confirmation. This provides a fallback when devnet history disappears.
+- The first Android preview test found a missing `expo-symbols` dependency. A direct import now makes the dependency required at bundle time. The regression check verifies the Vaulta package before every UI interaction and refuses another foreground app.
+- The first-release binary uses an ARM64 local development certificate. It is not a Play Store signing configuration.
+
+Native reference-wallet authorization, two repeatable signing requests, encrypted local save, and an actual byte-integrity inspection passed on the Android emulator. Solflare, physical-device biometrics, and a funded on-chain confirmation are not inferred from that result. The RPC faucet rejected the live protocol test with HTTP410 and directed funding to faucet.solana.com.

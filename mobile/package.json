@@ -49,9 +49,14 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "build:android": "bash scripts/build-android.sh",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src index.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "verify:android": "python3 scripts/verify-android.py",
+    "test:network": "tsx scripts/smoke-network.ts"
   },
   "private": true
 }
