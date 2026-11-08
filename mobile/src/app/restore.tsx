@@ -68,6 +68,9 @@ export default function RestoreScreen() {
           be used to download and decrypt files.
         </Text>
         <Text style={type.muted}>
+          If devnet history was reset or pruned, import your exported receipt. It locates the ciphertext; your wallet-derived key authenticates the content. This path does not assume current on-chain confirmation.
+        </Text>
+        <Text style={type.muted}>
           Restore downloads existing encrypted backups. Creating a new backup
           uploads encrypted data permanently to production Arweave; it cannot be
           deleted.
@@ -87,6 +90,12 @@ export default function RestoreScreen() {
           secondary={!owner}
           disabled={!owner || vault.preview || !!vault.busy}
           onPress={() => void vault.restore()}
+        />
+        <Button
+          title="Import recovery receipt"
+          secondary
+          disabled={!owner || vault.preview || !!vault.busy}
+          onPress={() => void vault.importReceipt()}
         />
         <Text style={type.label}>
           {vault.preview

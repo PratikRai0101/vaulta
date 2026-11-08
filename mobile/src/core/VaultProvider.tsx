@@ -9,7 +9,7 @@ import { connectWallet as authorizeWallet, discoverBackups, publishBackup } from
 import { downloadCiphertext, uploadCiphertext } from './remote';
 import * as storage from './storage';
 import { previewItems, makeSample, travelSample } from './samples';
-import { ItemSchema, ManifestSchema, type BackupRecord, type RemoteFile, type VaultItem, type VaultStatus } from './types';
+import { BackupRecordSchema, ItemSchema, ManifestSchema, type BackupRecord, type RemoteFile, type VaultItem, type VaultStatus } from './types';
 import type { VaultController } from './controller';
 
 const Context = createContext<VaultController | null>(null);
@@ -75,7 +75,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     try {
       const index = await storage.loadIndex(owner, key);
       const protectedOnDevice = cache ? await storage.protectKey(owner, key) : true;
-      storage.saveIdentity(owner); keyRef.current?.fill(0); keyRef.current = key; ownerRef.current = owner;
+      await storage.saveIdentity(owner); keyRef.current?.fill(0); keyRef.current = key; ownerRef.current = owner;
       setPreview(false); display(index); setStatus({ kind: 'unlocked', identity: { kind: 'wallet', owner } });
       if (!protectedOnDevice) Alert.alert('Wallet unlock required after restart', 'No enrolled biometric protection is available. Your encryption key will not be stored unprotected. Encrypted files remain here; reconnect the same wallet after restarting.');
     } catch (cause) { key.fill(0); throw cause; }
@@ -101,7 +101,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const { key, owner } = active();
     if (indexRef.current.items.length >= 100) throw new Error('This first version supports up to 100 items.');
     if (bytes.length > MAX_FILE_BYTES) throw new Error('This first version supports files under 2 MiB, including encryption overhead.');
-    storage.writeCiphertext(owner, item.id, encrypt(bytes, key, fileContext(owner, item.id)));
+    await storage.writeCiphertext(owner, item.id, encrypt(bytes, key, fileContext(owner, item.id)));
     await commit({ ...indexRef.current, items: [...indexRef.current.items, ItemSchema.parse(item)] });
   };
   const importDocument = async () => { await run('Importing and encrypting file…', async () => {
@@ -139,7 +139,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const item = indexRef.current.items.find(value => value.id === id); if (!item) throw new Error('This preview is not a saved file.');
     const bytes = await plaintext(item); if (hashHex(bytes) !== item.contentHash) throw new Error('File integrity check failed. No plaintext was opened.');
     const extension = item.mimeType === 'application/pdf' ? 'pdf' : item.mimeType === 'image/png' ? 'png' : item.mimeType === 'image/jpeg' ? 'jpg' : item.mimeType === 'application/json' ? 'json' : 'bin';
-    const file = storage.temporaryFile(item.id, extension, bytes);
+    const file = await storage.temporaryFile(item.id, extension, bytes);
     if (await file.canPreview({ mimeType: item.mimeType })) await file.preview({ title: item.title, mimeType: item.mimeType });
     else if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: item.mimeType, dialogTitle: 'Export a decrypted copy — outside Vaulta protection' });
     else throw new Error('No native viewer is available for this file type.');
@@ -170,8 +170,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await commit({ ...indexRef.current, receipt, confirmed: files });
     Alert.alert('Backup confirmed on devnet', 'Your wallet signed the recovery index. Turbo accepted the encrypted data; Arweave settlement can take longer. Export the public recovery receipt as an extra locator.');
   }); };
-  const restore = async () => { await run('Discovering your wallet-owned backups…', async () => {
-    const { key, owner } = active(); const discovery = await discoverBackups(owner);
+  const restore = async (imported?: BackupRecord) => { await run(imported ? 'Recovering from your public receipt…' : 'Discovering your wallet-owned backups…', async () => {
+    const { key, owner } = active();
+    if (imported && imported.owner !== owner) throw new Error('This receipt belongs to a different wallet account.');
+    const discovery = imported ? { records: [imported], truncated: false } : await discoverBackups(owner);
     if (!discovery.records.length) throw new Error(discovery.truncated ? 'No backup found in the first 500 transactions. More history exists; this is not proof that your vault has no backup.' : 'No valid Vaulta backup was found in the available devnet history. Devnet can reset.');
     const receipt = discovery.records[0];
     const encrypted = await downloadCiphertext(receipt.manifestId, receipt.ciphertextHash);
@@ -186,20 +188,35 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const bytes = await downloadCiphertext(remote.dataId, remote.ciphertextHash);
       const plain = decrypt(bytes, key, fileContext(owner, remote.item.id));
       if (hashHex(plain) !== remote.item.contentHash || plain.length !== remote.item.size) throw new Error('A recovered file failed its authenticated integrity check.');
-      storage.writeCiphertext(owner, remote.item.id, bytes);
+      await storage.writeCiphertext(owner, remote.item.id, bytes);
     }
     const localOnly = indexRef.current.items.filter(item => !uniqueIds.has(item.id));
     const uploads = [...indexRef.current.uploads.filter(remote => !uniqueIds.has(remote.item.id)), ...manifest.files];
-    await commit({ ...indexRef.current, items: [...localOnly, ...manifest.files.map(remote => remote.item)], uploads, confirmed: manifest.files, receipt });
-    Alert.alert('Vault recovered', `${manifest.files.length} authenticated items recovered. Local-only items were kept.${discovery.truncated ? ' More transaction history exists; only the first 500 transactions were scanned.' : ''}`);
+    await commit({ ...indexRef.current, items: [...localOnly, ...manifest.files.map(remote => remote.item)], uploads, confirmed: imported ? indexRef.current.confirmed : manifest.files, receipt: imported ? indexRef.current.receipt : receipt });
+    Alert.alert('Vault recovered', `${manifest.files.length} authenticated items recovered. Local-only items were kept.${imported ? ' The imported receipt located your ciphertext; your wallet-derived key authenticated it. Current on-chain confirmation was not assumed.' : discovery.truncated ? ' More transaction history exists; only the first 500 transactions were scanned.' : ''}`);
   }); };
+  const importReceipt = async () => {
+    const receipt = await run('Reading recovery receipt…', async () => {
+      const { owner } = active();
+      const result = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'text/plain'], copyToCacheDirectory: true, multiple: false });
+      if (result.canceled || !result.assets[0]) return null;
+      const file = new File(result.assets[0].uri);
+      try {
+        if (file.size > 16_384) throw new Error('A Vaulta recovery receipt must be under 16 KiB.');
+        const parsed = BackupRecordSchema.parse(JSON.parse(await file.text()));
+        if (parsed.owner !== owner) throw new Error('Connect the same wallet account named in this receipt.');
+        return parsed;
+      } finally { if (file.exists && file.uri.startsWith(`${Paths.cache.uri.replace(/\/$/, '')}/`)) file.delete(); }
+    });
+    if (receipt) await restore(receipt);
+  };
   const exportReceipt = async () => { await run('Exporting public recovery receipt…', async () => {
     active(); const receipt = indexRef.current.receipt; if (!receipt) throw new Error('No confirmed backup receipt is available.');
-    const file = storage.temporaryFile(Crypto.randomUUID(), 'json', encoder.encode(JSON.stringify(receipt, null, 2)));
+    const file = await storage.temporaryFile(Crypto.randomUUID(), 'json', encoder.encode(JSON.stringify(receipt, null, 2)));
     if (!(await Sharing.isAvailableAsync())) throw new Error('Native file sharing is not available.');
     await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Public backup locator — not a decryption key' });
   }); };
-  const controller: VaultController = { status, items, lastBackup, backedUpIds, busy, error, preview, connectWallet, enterPreview, unlock, lock, importDocument, addSamplePass, createMembership, backup, restore, inspect, open, exportReceipt, clearError: () => setError(null) };
+  const controller: VaultController = { status, items, lastBackup, backedUpIds, busy, error, preview, connectWallet, enterPreview, unlock, lock, importDocument, addSamplePass, createMembership, backup, restore, importReceipt, inspect, open, exportReceipt, clearError: () => setError(null) };
   return <Context.Provider value={controller}>{children}</Context.Provider>;
 }
 export function useVault(): VaultController {

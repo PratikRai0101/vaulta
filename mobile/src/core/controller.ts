@@ -18,6 +18,7 @@ export type VaultController = {
   createMembership: (title: string, memberName: string) => Promise<void>;
   backup: () => Promise<void>;
   restore: () => Promise<void>;
+  importReceipt: () => Promise<void>;
   inspect: (id: string) => Promise<IntegrityResult | null>;
   open: (id: string) => Promise<void>;
   exportReceipt: () => Promise<void>;

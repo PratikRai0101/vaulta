@@ -28,8 +28,8 @@ export async function readIdentity(): Promise<string | null> {
   if (!file.exists) return null;
   return IdentitySchema.parse(JSON.parse(await file.text())).owner;
 }
-export function saveIdentity(owner: string): void {
-  new File(root(), 'identity.json').write(JSON.stringify(IdentitySchema.parse({ owner })));
+export async function saveIdentity(owner: string): Promise<void> {
+  await new File(root(), 'identity.json').write(JSON.stringify(IdentitySchema.parse({ owner })));
 }
 export async function protectKey(owner: string, key: Uint8Array): Promise<boolean> {
   if (!(await LocalAuthentication.hasHardwareAsync()) || !(await LocalAuthentication.isEnrolledAsync()) || !SecureStore.canUseBiometricAuthentication()) return false;
@@ -62,19 +62,19 @@ export async function loadIndex(owner: string, key: Uint8Array): Promise<LocalIn
 export async function saveIndex(owner: string, key: Uint8Array, index: LocalIndex): Promise<LocalIndex> {
   const next = IndexSchema.parse({ ...index, revision: index.revision + 1 });
   const file = new File(ownerDirectory(owner), `index-${next.revision % 2}.vlt`);
-  file.write(encrypt(new TextEncoder().encode(JSON.stringify(next)), key, context(owner)));
+  await file.write(encrypt(new TextEncoder().encode(JSON.stringify(next)), key, context(owner)));
   const checked = IndexSchema.parse(JSON.parse(new TextDecoder().decode(decrypt(await file.bytes(), key, context(owner)))));
   if (checked.revision !== next.revision) throw new Error('Local index write verification failed');
   return checked;
 }
-export function writeCiphertext(owner: string, id: string, bytes: Uint8Array): void { fileFor(owner, id).write(bytes); }
+export async function writeCiphertext(owner: string, id: string, bytes: Uint8Array): Promise<void> { await fileFor(owner, id).write(bytes); }
 export async function readCiphertext(owner: string, id: string): Promise<Uint8Array> { return fileFor(owner, id).bytes(); }
 export function clearTemporaryFiles(): void {
   const dir = new Directory(Paths.cache, 'vaulta-open');
   if (dir.exists) dir.delete();
 }
-export function temporaryFile(id: string, extension: string, bytes: Uint8Array): File {
+export async function temporaryFile(id: string, extension: string, bytes: Uint8Array): Promise<File> {
   const dir = new Directory(Paths.cache, 'vaulta-open'); dir.create({ intermediates: true, idempotent: true });
   const name = `${z.string().uuid().parse(id)}.${z.enum(['pdf','png','jpg','json','bin']).parse(extension)}`;
-  const file = new File(dir, name); file.write(bytes); return file;
+  const file = new File(dir, name); await file.write(bytes); return file;
 }
