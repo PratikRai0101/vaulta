@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { Text, TextInput, View } from "react-native";
 import { History, KeyRound } from "lucide-react-native";
 import { useVault } from "../core/VaultProvider";
@@ -16,7 +17,8 @@ import {
 
 export default function RestoreScreen() {
   const vault = useVault();
-  const [requestedOwner, setRequestedOwner] = useState("");
+  const params = useLocalSearchParams();
+  const [requestedOwner, setRequestedOwner] = useState(() => typeof params.owner === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(params.owner) ? params.owner : "");
   const identity =
     vault.status.kind === "loading" ? null : vault.status.identity;
   const owner = identity?.kind === "wallet" ? identity.owner : null;
