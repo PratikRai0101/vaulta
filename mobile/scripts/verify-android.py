@@ -17,7 +17,13 @@ selector = ['-s', os.environ['ANDROID_SERIAL']] if os.environ.get('ANDROID_SERIA
 def run(*args):
     return subprocess.check_output([adb, *selector, *args], stderr=subprocess.STDOUT)
 
+def assert_foreground():
+    activities = run('shell', 'dumpsys', 'activity', 'activities').decode()
+    resumed = [line for line in activities.splitlines() if 'topResumedActivity=' in line or 'mResumedActivity:' in line]
+    assert any('com.vaulta.wallet/' in line for line in resumed), f'Wrong app foregrounded; refusing interaction: {resumed}'
+
 def tree():
+    assert_foreground()
     run('shell', 'uiautomator', 'dump', '/sdcard/vaulta-check.xml')
     destination = out / 'window.xml'
     run('pull', '/sdcard/vaulta-check.xml', str(destination))
@@ -27,7 +33,7 @@ def wait_label(label, attempts=8):
     for _ in range(attempts):
         nodes = list(tree().iter('node'))
         for node in nodes:
-            if label in (node.get('text', '') + ' ' + node.get('content-desc', '')):
+            if node.get('package') == 'com.vaulta.wallet' and label in (node.get('text', '') + ' ' + node.get('content-desc', '')):
                 return node
         time.sleep(.2)
     raise AssertionError(f'Native screen did not expose {label!r}; app may have crashed or failed navigation')
@@ -36,13 +42,23 @@ def tap(label):
     node = wait_label(label)
     values = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
     assert len(values) == 4
+    assert_foreground()
     run('shell', 'input', 'tap', str((values[0] + values[2]) // 2), str((values[1] + values[3]) // 2))
 
 def capture(name):
+    assert_foreground()
     (out / f'{name}.png').write_bytes(run('exec-out', 'screencap', '-p'))
 
 run('shell', 'am', 'force-stop', 'com.vaulta.wallet')
 run('shell', 'am', 'start', '-n', 'com.vaulta.wallet/.MainActivity')
+for attempt in range(20):
+    try:
+        assert_foreground()
+        break
+    except AssertionError:
+        if attempt == 19:
+            raise
+        time.sleep(.2)
 tap('Try design preview')
 wait_label('PREVIEW')
 wait_label('Your wallet')

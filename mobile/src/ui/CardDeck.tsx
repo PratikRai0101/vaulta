@@ -98,7 +98,7 @@ export function CardDeck({
   return (
     <>
       <View
-        style={[styles.stage, { height: Math.max(208, cardWidth / 1.53) + 75 }]}
+        style={[styles.stage, { height: Math.max(208, cardWidth / 1.53) + 42 }]}
       >
         {items.length > 1 && (
           <>
@@ -174,22 +174,22 @@ export function CardDeck({
               : selected.fields.memberName || "Tap the card to open"}
           </Text>
         </View>
-        <Text style={type.muted}>
-          {String(safeIndex + 1).padStart(2, "0")} /{" "}
-          {String(items.length).padStart(2, "0")}
-        </Text>
-      </View>
-      {items.length > 1 && (
-        <View style={styles.navigation}>
-          <IconButton label="Previous pass" onPress={() => move(-1)}>
-            <ChevronLeft color={colors.muted} size={20} />
-          </IconButton>
-          <Text style={type.label}>Swipe to browse</Text>
-          <IconButton label="Next pass" onPress={() => move(1)}>
-            <ChevronRight color={colors.muted} size={20} />
-          </IconButton>
+        <View style={{ alignItems: "center" }}>
+          <Text style={type.muted}>
+            {String(safeIndex + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+          </Text>
+          {items.length > 1 && (
+            <View style={{ flexDirection: "row" }}>
+              <IconButton label="Previous pass" onPress={() => move(-1)}>
+                <ChevronLeft color={colors.muted} size={20} />
+              </IconButton>
+              <IconButton label="Next pass" onPress={() => move(1)}>
+                <ChevronRight color={colors.muted} size={20} />
+              </IconButton>
+            </View>
+          )}
         </View>
-      )}
+      </View>
     </>
   );
 }
@@ -214,11 +214,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 18,
     marginTop: 6,
-  },
-  navigation: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 12,
   },
 });

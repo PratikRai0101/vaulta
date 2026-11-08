@@ -7,8 +7,8 @@ import { Mark } from "./primitives";
 
 export function MetalSurface({ dark = false }: { dark?: boolean }) {
   return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
     <Svg
-      style={StyleSheet.absoluteFill}
       width="100%"
       height="100%"
       viewBox="0 0 340 222"
@@ -41,6 +41,7 @@ export function MetalSurface({ dark = false }: { dark?: boolean }) {
         opacity="0.2"
       />
     </Svg>
+    </View>
   );
 }
 export function PassCard({ item }: { item: VaultItem }) {
