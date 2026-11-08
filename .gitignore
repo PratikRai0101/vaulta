@@ -1,5 +1,7 @@
 node_modules/
 .expo/
+.local-build/
+mobile/.claude/
 .env
 .env.*
 !.env.example
