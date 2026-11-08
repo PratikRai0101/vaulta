@@ -6,7 +6,7 @@ import type { Web3MobileWallet } from '@solana-mobile/mobile-wallet-adapter-prot
 import { deriveVaultKey, recoveryMessage } from './crypto';
 import { BackupRecordSchema, type BackupRecord, type DiscoveryResult, type WalletSession } from './types';
 
-const identity = { name: 'Vaulta', uri: 'https://vaulta.app' };
+const identity = { name: 'Vaulta', uri: 'https://github.com/PratikRai0101/vaulta' };
 const memoProgram = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 const connection = () => new Connection(clusterApiUrl('devnet'), 'confirmed');
 let authToken: string | undefined;
@@ -39,6 +39,7 @@ async function sign(wallet: Web3MobileWallet, payload: Uint8Array, owner: string
   return extractVerifiedSignature(result[0], payload, owner);
 }
 export async function connectWallet(): Promise<{ session: WalletSession; key: Uint8Array }> {
+  authToken = undefined;
   return withWallet(async (wallet) => {
     const account = await authorize(wallet); const message = recoveryMessage(account.owner);
     const first = await sign(wallet, message, account.owner, account.address);
@@ -73,16 +74,17 @@ export function recordFromTransaction(owner: string, signature: string, result: 
 }
 export async function publishBackup(input: Omit<BackupRecord, 'protocol' | 'transaction'>): Promise<BackupRecord> {
   const record = BackupRecordSchema.omit({ transaction: true }).parse({ ...input, protocol: 'vaulta-v1' });
-  const rpc = connection(); const latest = await rpc.getLatestBlockhash('confirmed');
+  const rpc = connection();
   const owner = new PublicKey(record.owner);
-  const transaction = new Transaction({ feePayer: owner, ...latest }).add(new TransactionInstruction({
-    programId: memoProgram, keys: [{ pubkey: owner, isSigner: true, isWritable: false }], data: Buffer.from(JSON.stringify(record), 'utf8'),
-  }));
-  const signature = await withWallet(async (wallet) => {
+  const { signature, latest } = await withWallet(async (wallet) => {
     await authorize(wallet, record.owner);
-    const signatures = await wallet.signAndSendTransactions({ transactions: [transaction], commitment: 'confirmed' });
+    const { context, value: latest } = await rpc.getLatestBlockhashAndContext('confirmed');
+    const transaction = new Transaction({ feePayer: owner, ...latest }).add(new TransactionInstruction({
+      programId: memoProgram, keys: [{ pubkey: owner, isSigner: true, isWritable: false }], data: Buffer.from(JSON.stringify(record), 'utf8'),
+    }));
+    const signatures = await wallet.signAndSendTransactions({ transactions: [transaction], minContextSlot: context.slot, commitment: 'confirmed' });
     if (signatures.length !== 1) throw new Error('Wallet returned an unexpected transaction result');
-    return signatures[0];
+    return { signature: signatures[0], latest };
   });
   const confirmation = await rpc.confirmTransaction({ signature, ...latest }, 'confirmed');
   if (confirmation.value.err) throw new Error('Backup transaction failed on Solana devnet');
