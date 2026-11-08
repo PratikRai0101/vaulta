@@ -18,7 +18,7 @@ async function withWallet<T>(fn: (wallet: Web3MobileWallet) => Promise<T>): Prom
   return transact(fn);
 }
 async function authorize(wallet: Web3MobileWallet, expected?: string) {
-  const result = await wallet.authorize({ chain: 'solana:devnet', identity, ...(authToken ? { auth_token: authToken } : {}) });
+  const result = await wallet.authorize({ chain: 'solana:devnet', identity, ...(authToken ? { auth_token: authToken } : {}), ...(expected ? { addresses: [Buffer.from(new PublicKey(expected).toBytes()).toString('base64')] } : {}) });
   const account = expected
     ? result.accounts.find((entry) => new PublicKey(Buffer.from(entry.address, 'base64')).toBase58() === expected)
     : result.accounts[0];
@@ -38,10 +38,10 @@ async function sign(wallet: Web3MobileWallet, payload: Uint8Array, owner: string
   if (result.length !== 1) throw new Error('Wallet returned an unexpected number of signed messages');
   return extractVerifiedSignature(result[0], payload, owner);
 }
-export async function connectWallet(): Promise<{ session: WalletSession; key: Uint8Array }> {
+export async function connectWallet(expectedOwner?: string): Promise<{ session: WalletSession; key: Uint8Array }> {
   authToken = undefined;
   return withWallet(async (wallet) => {
-    const account = await authorize(wallet); const message = recoveryMessage(account.owner);
+    const account = await authorize(wallet, expectedOwner); const message = recoveryMessage(account.owner);
     const first = await sign(wallet, message, account.owner, account.address);
     const second = await sign(wallet, message, account.owner, account.address);
     if (!first.every((byte, index) => byte === second[index])) throw new Error('Wallet signatures are not repeatable; recovery is unavailable');

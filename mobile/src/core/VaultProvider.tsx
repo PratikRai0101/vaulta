@@ -80,15 +80,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!protectedOnDevice) Alert.alert('Wallet unlock required after restart', 'No enrolled biometric protection is available. Your encryption key will not be stored unprotected. Encrypted files remain here; reconnect the same wallet after restarting.');
     } catch (cause) { key.fill(0); throw cause; }
   };
-  const connectWallet = async () => { await run('Connecting wallet and deriving private key…', async () => {
-    const result = await authorizeWallet(); await install(result.session.owner, result.key, true);
+  const connectWallet = async (expectedOwner?: string) => { await run('Connecting wallet and deriving private key…', async () => {
+    const result = await authorizeWallet(expectedOwner); await install(result.session.owner, result.key, true);
   }); };
   const unlock = async () => { await run('Unlocking encrypted vault…', async () => {
     const owner = ownerRef.current;
     if (!owner) throw new Error('Connect your wallet to create a vault.');
     const cached = await storage.readProtectedKey(owner);
     if (cached) return install(owner, cached, false);
-    const result = await authorizeWallet();
+    const result = await authorizeWallet(owner);
     if (result.session.owner !== owner) { result.key.fill(0); throw new Error('Use the same wallet account that owns this local vault.'); }
     await install(owner, result.key, true);
   }); };

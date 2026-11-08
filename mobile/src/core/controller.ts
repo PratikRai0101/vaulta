@@ -9,7 +9,7 @@ export type VaultController = {
   busy: string | null;
   error: string | null;
   preview: boolean;
-  connectWallet: () => Promise<void>;
+  connectWallet: (expectedOwner?: string) => Promise<void>;
   enterPreview: () => void;
   unlock: () => Promise<void>;
   lock: () => void;

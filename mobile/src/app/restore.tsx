@@ -1,4 +1,5 @@
-import { Text, View } from "react-native";
+import { useState } from "react";
+import { Text, TextInput, View } from "react-native";
 import { History, KeyRound } from "lucide-react-native";
 import { useVault } from "../core/VaultProvider";
 import { colors, type } from "../theme";
@@ -15,6 +16,7 @@ import {
 
 export default function RestoreScreen() {
   const vault = useVault();
+  const [requestedOwner, setRequestedOwner] = useState("");
   const identity =
     vault.status.kind === "loading" ? null : vault.status.identity;
   const owner = identity?.kind === "wallet" ? identity.owner : null;
@@ -25,6 +27,8 @@ export default function RestoreScreen() {
         title={"Same wallet.\nSame vault."}
         subtitle="Discover encrypted backups owned by your connected wallet."
       />
+      <TextInput accessibilityLabel="Recovery wallet address" placeholder="Original Solana account address" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} value={requestedOwner} onChangeText={setRequestedOwner} style={[shared.input, { marginBottom: 12 }]} />
+      <Button title="Connect this account" secondary disabled={!requestedOwner.trim() || !!vault.busy} onPress={() => void vault.connectWallet(requestedOwner.trim())} />
       <View
         style={{ height: 190, alignItems: "center", justifyContent: "center" }}
       >
