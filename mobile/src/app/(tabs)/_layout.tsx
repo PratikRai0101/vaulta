@@ -1,3 +1,4 @@
+import "expo-symbols";
 import { NativeTabs } from "expo-router/native-tabs";
 import { colors, fonts } from "../../theme";
 
