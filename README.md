@@ -18,11 +18,11 @@
   </p>
 
   <p>
-    <a href="#install"><img src="https://img.shields.io/badge/Android-7%2B-344C42?logo=android&amp;logoColor=white" alt="Android 7 or later" /></a>
-    <a href="#tech-stack"><img src="https://img.shields.io/badge/React_Native-0.88-26332E?logo=react&amp;logoColor=white" alt="React Native 0.88" /></a>
-    <a href="#tech-stack"><img src="https://img.shields.io/badge/TypeScript-6.0-26332E?logo=typescript&amp;logoColor=white" alt="TypeScript 6.0" /></a>
-    <a href="#why-solana"><img src="https://img.shields.io/badge/Solana-devnet-52665A?logo=solana&amp;logoColor=white" alt="Solana devnet" /></a>
-    <a href="#project-status"><img src="https://img.shields.io/badge/status-experimental-C6B58C" alt="Experimental hackathon build" /></a>
+    <a href="#install"><img src="docs/images/badges/android.svg" alt="Android 7 or later" /></a>
+    <a href="#tech-stack"><img src="docs/images/badges/react-native.svg" alt="React Native 0.88" /></a>
+    <a href="#tech-stack"><img src="docs/images/badges/typescript.svg" alt="TypeScript 6.0" /></a>
+    <a href="#why-solana"><img src="docs/images/badges/solana.svg" alt="Solana devnet" /></a>
+    <a href="#project-status"><img src="docs/images/badges/status.svg" alt="Experimental hackathon build" /></a>
   </p>
 </div>
 
